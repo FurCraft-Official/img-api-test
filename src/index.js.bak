@@ -1,0 +1,48 @@
+export default {
+  async fetch(request, env) {
+    // 先获取存储桶里所有对象列表（假设数量不大）
+    // 注意：R2 list 返回是分页的，这里简单示范只拿第一页
+    const listResponse = await env.IMAGES.list({ limit: 100 });
+    const objects = listResponse.objects;
+
+    if (objects.length === 0) {
+      return new Response("No images found in R2 bucket", { status: 404 });
+    }
+
+    // 从对象列表随机选一张
+    const randomIndex = Math.floor(Math.random() * objects.length);
+    const randomObject = objects[randomIndex];
+
+    // 请求中判断是否接受 JSON
+    const acceptHeader = request.headers.get("Accept") || "";
+    const wantsJson = acceptHeader.includes("application/json");
+
+    if (wantsJson) {
+      // 返回图片相关的 JSON 信息
+      return new Response(
+        JSON.stringify({
+          key: randomObject.key,
+          size: randomObject.size,
+          uploaded: randomObject.uploaded,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // 不想要 JSON，直接返回图片文件
+    const object = await env.IMAGES.get(randomObject.key);
+
+    if (!object) {
+      return new Response("Image not found", { status: 404 });
+    }
+
+    // 读取图片内容并返回
+    return new Response(object.body, {
+      headers: {
+        "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+      },
+    });
+  },
+};

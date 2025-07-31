@@ -1,0 +1,18 @@
+{
+  // Workers 名称
+  "name": "furapi",
+  "main": "src/index.js",
+  "compatibility_date": "2025-07-31",
+
+  // R2 图片存储桶绑定
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "images",
+      "preview_bucket_name": "images"
+    }
+  ],
+
+  // 开启 workers.dev 子域名
+  "workers_dev": true
+}
