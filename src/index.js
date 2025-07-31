@@ -1,46 +1,48 @@
+import { getAssetFromKV } from "@cloudflare/kv-asset-handler";
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const wantJson = url.searchParams.get("json") === "1";
 
-    // 获取 R2 桶里文件列表，最多 100 个
-    const listResponse = await env.IMAGES.list({ limit: 100 });
-    const objects = listResponse.objects;
+    // 如果路径以 /api 开头，处理为图片 API
+    if (url.pathname.startsWith("/api")) {
+      const wantJson = url.searchParams.get("json") === "1";
 
-    if (objects.length === 0) {
-      return new Response("No images found in R2 bucket", { status: 404 });
-    }
+      const list = await env.IMAGES.list({ limit: 100 });
+      if (!list || list.objects.length === 0) {
+        return new Response("No images in R2 bucket", { status: 404 });
+      }
 
-    // 随机选一个文件
-    const randomIndex = Math.floor(Math.random() * objects.length);
-    const randomObject = objects[randomIndex];
+      const random = list.objects[Math.floor(Math.random() * list.objects.length)];
+      const object = await env.IMAGES.get(random.key);
+      if (!object) {
+        return new Response("Failed to load image", { status: 500 });
+      }
 
-    if (wantJson) {
-      // 返回 JSON
-      return new Response(
-        JSON.stringify({
-          key: randomObject.key,
-          size: randomObject.size,
-          uploaded: randomObject.uploaded,
-          url: `https://${url.host}/${randomObject.key}`
-        }),
-        {
-          headers: { "Content-Type": "application/json" },
+      if (wantJson) {
+        return new Response(
+          JSON.stringify({
+            key: random.key,
+            size: random.size,
+            uploaded: random.uploaded,
+            url: `${url.origin}/api/${random.key}`
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": object.httpMetadata?.contentType || "application/octet-stream"
         }
-      );
+      });
     }
 
-    // 返回图片文件流
-    const object = await env.IMAGES.get(randomObject.key);
-
-    if (!object) {
-      return new Response("Image not found", { status: 404 });
+    // 默认处理：返回静态网页
+    try {
+      return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
+    } catch (err) {
+      return new Response("Not found", { status: 404 });
     }
-
-    return new Response(object.body, {
-      headers: {
-        "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-      },
-    });
-  },
+  }
 };
