@@ -2,10 +2,8 @@
   "name": "furapi",
   "compatibility_date": "2025-07-31",
 
-  // Worker入口脚本
   "main": "src/index.js",
 
-  // R2绑定
   "r2_buckets": [
     {
       "binding": "IMAGES",
@@ -14,15 +12,12 @@
     }
   ],
 
-  // 静态资源目录，自动托管
   "assets": {
     "directory": "./public"
   },
 
-  // 启用 workers_dev 子域名，方便测试
   "workers_dev": true,
 
-  // 多环境配置示例
   "env": {
     "development": {
       "workers_dev": true,

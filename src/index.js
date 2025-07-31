@@ -4,7 +4,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 如果路径以 /api 开头，处理为图片 API
     if (url.pathname.startsWith("/api")) {
       const wantJson = url.searchParams.get("json") === "1";
 
@@ -38,7 +37,6 @@ export default {
       });
     }
 
-    // 默认处理：返回静态网页
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
     } catch (err) {
