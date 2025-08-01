@@ -11,6 +11,7 @@
 curl https://img.furapi.top/api
 ```
 
+---
 
 ## 🧪 API 使用文档
 
@@ -32,6 +33,7 @@ GET https://img.furapi.top/api
 {"key":"Screenshot_2025-08-01-01-37-32-586_org.telegram.messenger.jpg","size":418227,"uploaded":"2025-07-31T19:39:31.410Z","url":"https://img.furapi.top/api/Screenshot_2025-08-01-01-37-32-586_org.telegram.messenger.jpg"}
 ```
 
+---
 
 ### 📁 获取某分类下的随机图片
 
@@ -43,6 +45,7 @@ GET https://img.furapi.top/A
 
 支持 `?json=1` 参数获取 JSON 格式返回。
 
+---
 
 ### 📂 直接访问指定图片
 
@@ -52,6 +55,7 @@ GET https://img.furapi.top/A/1.png
 
 `A` 为分类，`1.png` 为图片文件名。
 
+---
 
 ### 📃 获取所有图片列表
 
@@ -61,6 +65,7 @@ GET https://img.furapi.top/list.json
 
 返回一个 JSON 数组，包含所有图片的路径。
 
+---
 
 ## 📚 可用分类
 
@@ -74,6 +79,7 @@ GET https://img.furapi.top/list.json
 
 你也可以自己添加或管理 `list.json` 来控制分类内容。
 
+---
 
 
 © 2025 随机福瑞图 API | 由 FurCraft 提供支持
