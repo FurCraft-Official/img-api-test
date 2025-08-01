@@ -76,7 +76,7 @@ GET https://img.furapi.top/list.json
   "目录2": {
     "文件1": "..."
     "...": "...",
-  },
+  }
 }
 ```
 <br>
