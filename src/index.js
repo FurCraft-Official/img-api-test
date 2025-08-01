@@ -82,8 +82,8 @@ export default {
       });
     }
 
-    // 随机图片 API
-    if (url.pathname.startsWith("/api")) {
+    // 随机图片 API — 访问 /api 或 /api/
+    if (url.pathname === "/api" || url.pathname === "/api/") {
       const wantJson = url.searchParams.get("json") === "1";
 
       const list = await env.IMAGES.list({ limit: 100 });
@@ -116,7 +116,21 @@ export default {
       });
     }
 
-    // 静态资源请求
+    // 访问 /api/具体图片名，返回对应图片
+    if (url.pathname.startsWith("/api/")) {
+      const key = url.pathname.slice(5); // 去掉 "/api/"
+      const object = await env.IMAGES.get(key);
+      if (!object) {
+        return new Response("Image not found", { status: 404 });
+      }
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+        },
+      });
+    }
+
+    // 其他静态资源请求
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
     } catch (err) {
