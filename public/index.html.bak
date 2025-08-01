@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>随机福瑞图API</title>
+  <title>FurAPI</title>
   <link rel="shortcut icon" href="favicon.ico">,
   <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,6 +155,7 @@
 
     <footer>
       <p>© 2025 随机福瑞图 API | 由 FurCraft 提供支持</p>
+      <a herf=https://github.com/FurCraft-Official/img-api-test/tree/main>github</a>
     </footer>
   </div>
 
