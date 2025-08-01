@@ -67,7 +67,6 @@ GET https://img.furapi.top/list.json
 <br>
 分类列表的格式为目录树格式
 <pre>
-```text
 {
   "目录": {
     "文件1": "修改时间",
@@ -79,7 +78,6 @@ GET https://img.furapi.top/list.json
     "...": ""
   }
 }
-```
 </pre>
 <br>
 

@@ -66,6 +66,7 @@ GET https://img.furapi.top/list.json
 - ...
 <br>
 分类列表的格式为目录树格式
+<pre>
 ```text
 {
   "目录": {
@@ -79,6 +80,7 @@ GET https://img.furapi.top/list.json
   }
 }
 ```
+</pre>
 <br>
 
 注：本api为cloudflare workers构建，每日访问量有限
