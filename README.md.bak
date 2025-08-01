@@ -3,12 +3,12 @@
 
 一个简单易用的福瑞图片 API 服务，提供随机图片、分类浏览和图片列表获取。
 
-## 📷 示例预览
+## 📷 示例
 
-运行可获取一张随机的福瑞图片：
+在html上可获取一张随机的福瑞图片：
 
-```shell
-curl https://img.furapi.top/api -o 1.jpg
+```html
+<img src=https://img.furapi.top/api>
 ```
 
 
@@ -22,7 +22,7 @@ curl https://img.furapi.top/api -o 1.jpg
 GET https://img.furapi.top/api
 ```
 
-返回一张随机图片。
+返回一张所有分类的随机图片。
 
 #### ➕ 可选参数
 
@@ -49,7 +49,7 @@ GET https://img.furapi.top/A/1.png
 GET https://img.furapi.top/list.json
 ```
 
-返回一个 JSON 数组，包含所有图片的路径。
+返回一个 JSON 数组，包含所有文件的路径以及修改时间。
 
 
 ## 📚 可用分类
@@ -62,8 +62,18 @@ GET https://img.furapi.top/list.json
 - `dog`
 - ...
 
-你也可以自己添加或管理 `list.json` 来控制分类内容。
-
+分类列表的格式为目录树格式
+"目录": {
+  文件1
+  文件2
+  ...
+}
+"目录2": {
+  文件1
+  ...
+}
+<br>
+注：本api为cloudflare workers构建，每日访问量有限
 <br>
 
 © 2025 随机福瑞图 API | 由 FurCraft 提供支持
