@@ -59,20 +59,20 @@ async function updateListJson(env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const pathname = url.pathname;
 
-    // 手动刷新 list.json 接口，使用请求头 Authorization 鉴权
-    if (url.pathname === "/update-list") {
+    // ✅ 手动刷新 list.json
+    if (pathname === "/update-list") {
       const authHeader = request.headers.get("Authorization");
       if (authHeader !== `Bearer ${env.ADMIN_TOKEN}`) {
         return new Response("Unauthorized", { status: 403 });
       }
-
       await updateListJson(env);
       return new Response("list.json 手动刷新成功", { status: 200 });
     }
 
-    // 访问 list.json，返回 R2 里的文件内容
-    if (url.pathname === "/list.json") {
+    // ✅ 获取 list.json
+    if (pathname === "/list.json") {
       const listObject = await env.IMAGES.get("list.json");
       if (!listObject) {
         return new Response("list.json not found", { status: 404 });
@@ -82,58 +82,81 @@ export default {
       });
     }
 
-    // 随机图片 API — 访问 /api 或 /api/
-    if (url.pathname === "/api" || url.pathname === "/api/") {
+    // ✅ 图片 API：/api 或 /api/分类 或 /api/具体路径
+    if (pathname.startsWith("/api")) {
       const wantJson = url.searchParams.get("json") === "1";
+      const parts = pathname.split("/").filter(Boolean); // e.g. ['api', 'cat', '1.jpg']
+      const afterApi = parts.slice(1); // remove 'api'
 
-      const list = await env.IMAGES.list({ limit: 100 });
-      if (!list || list.objects.length === 0) {
-        return new Response("No images in R2 bucket", { status: 404 });
-      }
+      if (afterApi.length === 0) {
+        // /api -> 所有图中随机
+        const list = await env.IMAGES.list({ limit: 1000 });
+        const files = list.objects.filter(obj => !obj.key.endsWith("/"));
+        if (files.length === 0) return new Response("No images", { status: 404 });
 
-      const random = list.objects[Math.floor(Math.random() * list.objects.length)];
-      const object = await env.IMAGES.get(random.key);
-      if (!object) {
-        return new Response("Failed to load image", { status: 500 });
-      }
+        const random = files[Math.floor(Math.random() * files.length)];
+        const object = await env.IMAGES.get(random.key);
+        if (!object) return new Response("Failed to load image", { status: 500 });
 
-      if (wantJson) {
-        return new Response(
-          JSON.stringify({
+        if (wantJson) {
+          return new Response(JSON.stringify({
             key: random.key,
             size: random.size,
             uploaded: random.uploaded,
             url: `${url.origin}/api/${random.key}`,
-          }),
-          { headers: { "Content-Type": "application/json" } }
-        );
+          }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        return new Response(object.body, {
+          headers: {
+            "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+          },
+        });
       }
 
-      return new Response(object.body, {
-        headers: {
-          "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-        },
-      });
-    }
+      const key = afterApi.join("/");
 
-    // 访问 /api/具体图片名，返回对应图片
-    if (url.pathname.startsWith("/api/")) {
-      const key = url.pathname.slice(5); // 去掉 "/api/"
+      // /api/xxx/yyy -> 判断是否是图片路径或分类
       const object = await env.IMAGES.get(key);
-      if (!object) {
-        return new Response("Image not found", { status: 404 });
+      if (object) {
+        // 直接访问文件
+        return new Response(object.body, {
+          headers: {
+            "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+          },
+        });
+      } else {
+        // 尝试按前缀当分类匹配
+        const prefix = `${afterApi[0]}/`;
+        const list = await env.IMAGES.list({ prefix });
+        const candidates = list.objects.filter(obj => !obj.key.endsWith("/"));
+        if (candidates.length === 0) return new Response("分类中无图片", { status: 404 });
+
+        const random = candidates[Math.floor(Math.random() * candidates.length)];
+        const obj = await env.IMAGES.get(random.key);
+        if (!obj) return new Response("无法加载图片", { status: 500 });
+
+        if (wantJson) {
+          return new Response(JSON.stringify({
+            key: random.key,
+            size: random.size,
+            uploaded: random.uploaded,
+            url: `${url.origin}/api/${random.key}`,
+          }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        return new Response(obj.body, {
+          headers: {
+            "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
+          },
+        });
       }
-      return new Response(object.body, {
-        headers: {
-          "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-        },
-      });
     }
 
-    // 其他静态资源请求
+    // ✅ 静态资源
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
-    } catch (err) {
+    } catch {
       return new Response("Not found", { status: 404 });
     }
   },

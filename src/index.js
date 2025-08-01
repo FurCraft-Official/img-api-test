@@ -17,6 +17,14 @@ function formatShanghaiTime(dateStr) {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+function isImage(key) {
+  return (
+    /\.(png|jpe?g|gif|webp)$/i.test(key) &&
+    !key.endsWith("/") &&
+    key !== "list.json"
+  );
+}
+
 async function updateListJson(env) {
   const structure = {};
   let cursor;
@@ -25,6 +33,7 @@ async function updateListJson(env) {
     const { objects, cursor: nextCursor } = await env.IMAGES.list({ cursor });
     for (const obj of objects) {
       if (obj.key.endsWith("/")) continue;
+      if (obj.key === "list.json") continue;
 
       const parts = obj.key.split("/");
       const timestamp = formatShanghaiTime(obj.uploaded);
@@ -53,7 +62,7 @@ async function updateListJson(env) {
     httpMetadata: { contentType: "application/json" },
   });
 
-  console.log("✅ list.json 已更新（含上传时间 + 目录树结构）");
+  console.log("✅ list.json 已更新");
 }
 
 export default {
@@ -82,16 +91,16 @@ export default {
       });
     }
 
-    // ✅ 图片 API：/api 或 /api/分类 或 /api/具体路径
+    // ✅ 图片 API 路由逻辑
     if (pathname.startsWith("/api")) {
       const wantJson = url.searchParams.get("json") === "1";
       const parts = pathname.split("/").filter(Boolean); // e.g. ['api', 'cat', '1.jpg']
-      const afterApi = parts.slice(1); // remove 'api'
+      const afterApi = parts.slice(1);
 
+      // /api -> 所有图中随机
       if (afterApi.length === 0) {
-        // /api -> 所有图中随机
         const list = await env.IMAGES.list({ limit: 1000 });
-        const files = list.objects.filter(obj => !obj.key.endsWith("/"));
+        const files = list.objects.filter(obj => isImage(obj.key));
         if (files.length === 0) return new Response("No images", { status: 404 });
 
         const random = files[Math.floor(Math.random() * files.length)];
@@ -115,21 +124,19 @@ export default {
       }
 
       const key = afterApi.join("/");
-
-      // /api/xxx/yyy -> 判断是否是图片路径或分类
       const object = await env.IMAGES.get(key);
       if (object) {
-        // 直接访问文件
+        // 访问 /api/<完整路径>
         return new Response(object.body, {
           headers: {
             "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
           },
         });
       } else {
-        // 尝试按前缀当分类匹配
+        // 访问 /api/<分类> → 随机返回该目录下图片
         const prefix = `${afterApi[0]}/`;
         const list = await env.IMAGES.list({ prefix });
-        const candidates = list.objects.filter(obj => !obj.key.endsWith("/"));
+        const candidates = list.objects.filter(obj => isImage(obj.key));
         if (candidates.length === 0) return new Response("分类中无图片", { status: 404 });
 
         const random = candidates[Math.floor(Math.random() * candidates.length)];
