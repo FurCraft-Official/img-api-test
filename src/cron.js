@@ -10,11 +10,8 @@ function formatShanghaiTime(dateStr) {
     second: '2-digit',
     hour12: false
   };
-  const formatter = new Intl.DateTimeFormat('zh-CN', options);
-  const parts = formatter.formatToParts(date);
-
+  const parts = new Intl.DateTimeFormat('zh-CN', options).formatToParts(date);
   const get = (type) => parts.find(p => p.type === type)?.value.padStart(2, '0');
-
   return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
@@ -56,6 +53,6 @@ export default {
       httpMetadata: { contentType: "application/json" }
     });
 
-    console.log("✅ list.json 已按 Asia/Shanghai 时区生成完成");
+    console.log("✅ 已生成 list.json（含上传时间）");
   }
 }
