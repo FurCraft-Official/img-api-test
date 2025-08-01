@@ -32,9 +32,7 @@ async function updateListJson(env) {
   do {
     const { objects, cursor: nextCursor } = await env.IMAGES.list({ cursor });
     for (const obj of objects) {
-      if (obj.key.endsWith("/")) continue;
-      if (obj.key === "list.json") continue;
-
+      if (obj.key.endsWith("/") || obj.key === "list.json") continue;
       const parts = obj.key.split("/");
       const timestamp = formatShanghaiTime(obj.uploaded);
 
@@ -62,22 +60,24 @@ async function updateListJson(env) {
     httpMetadata: { contentType: "application/json" },
   });
 
-  console.log("✅ list.json 已更新");
+  console.log("✅ list.json 已异步更新");
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+    const wantJson = url.searchParams.get("json") === "1";
 
-    // ✅ 手动刷新 list.json
+    // ✅ 手动刷新 list.json（异步，不阻塞）
     if (pathname === "/update-list") {
       const authHeader = request.headers.get("Authorization");
       if (authHeader !== `Bearer ${env.ADMIN_TOKEN}`) {
         return new Response("Unauthorized", { status: 403 });
       }
-      await updateListJson(env);
-      return new Response("list.json 手动刷新成功", { status: 200 });
+
+      ctx.waitUntil(updateListJson(env)); // 异步执行，不阻塞响应
+      return new Response("✅ 已启动异步刷新 list.json，请稍后访问", { status: 202 });
     }
 
     // ✅ 获取 list.json
@@ -91,16 +91,21 @@ export default {
       });
     }
 
-    // ✅ 图片 API 路由逻辑
+    // ✅ 图片 API
     if (pathname.startsWith("/api")) {
-      const wantJson = url.searchParams.get("json") === "1";
-      const parts = pathname.split("/").filter(Boolean); // e.g. ['api', 'cat', '1.jpg']
-      const afterApi = parts.slice(1);
+      const parts = pathname.split("/").filter(Boolean).slice(1); // 去掉 /api 部分
 
-      // /api -> 所有图中随机
-      if (afterApi.length === 0) {
-        const list = await env.IMAGES.list({ limit: 1000 });
-        const files = list.objects.filter(obj => isImage(obj.key));
+      // /api → 所有图片中随机
+      if (parts.length === 0) {
+        let cursor;
+        const files = [];
+
+        do {
+          const { objects, cursor: next } = await env.IMAGES.list({ cursor });
+          files.push(...objects.filter(obj => isImage(obj.key)));
+          cursor = next;
+        } while (cursor);
+
         if (files.length === 0) return new Response("No images", { status: 404 });
 
         const random = files[Math.floor(Math.random() * files.length)];
@@ -112,7 +117,7 @@ export default {
             key: random.key,
             size: random.size,
             uploaded: random.uploaded,
-            url: `${url.origin}/api/${random.key}`,
+            url: `${url.origin}/api/${random.key}`
           }), { headers: { "Content-Type": "application/json" } });
         }
 
@@ -123,41 +128,41 @@ export default {
         });
       }
 
-      const key = afterApi.join("/");
-      const object = await env.IMAGES.get(key);
-      if (object) {
-        // 访问 /api/<完整路径>
-        return new Response(object.body, {
+      // /api/<path> → 先尝试访问文件，再尝试目录随机
+      const key = parts.join("/");
+      const fileObject = await env.IMAGES.get(key);
+      if (fileObject) {
+        return new Response(fileObject.body, {
           headers: {
-            "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-          },
-        });
-      } else {
-        // 访问 /api/<分类> → 随机返回该目录下图片
-        const prefix = `${afterApi[0]}/`;
-        const list = await env.IMAGES.list({ prefix });
-        const candidates = list.objects.filter(obj => isImage(obj.key));
-        if (candidates.length === 0) return new Response("分类中无图片", { status: 404 });
-
-        const random = candidates[Math.floor(Math.random() * candidates.length)];
-        const obj = await env.IMAGES.get(random.key);
-        if (!obj) return new Response("无法加载图片", { status: 500 });
-
-        if (wantJson) {
-          return new Response(JSON.stringify({
-            key: random.key,
-            size: random.size,
-            uploaded: random.uploaded,
-            url: `${url.origin}/api/${random.key}`,
-          }), { headers: { "Content-Type": "application/json" } });
-        }
-
-        return new Response(obj.body, {
-          headers: {
-            "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
+            "Content-Type": fileObject.httpMetadata?.contentType || "application/octet-stream",
           },
         });
       }
+
+      // 否则作为目录前缀随机返回
+      const prefix = key.endsWith("/") ? key : key + "/";
+      const list = await env.IMAGES.list({ prefix });
+      const candidates = list.objects.filter(obj => isImage(obj.key));
+      if (candidates.length === 0) return new Response("分类中无图片", { status: 404 });
+
+      const random = candidates[Math.floor(Math.random() * candidates.length)];
+      const obj = await env.IMAGES.get(random.key);
+      if (!obj) return new Response("无法加载图片", { status: 500 });
+
+      if (wantJson) {
+        return new Response(JSON.stringify({
+          key: random.key,
+          size: random.size,
+          uploaded: random.uploaded,
+          url: `${url.origin}/api/${random.key}`
+        }), { headers: { "Content-Type": "application/json" } });
+      }
+
+      return new Response(obj.body, {
+        headers: {
+          "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
+        },
+      });
     }
 
     // ✅ 静态资源
