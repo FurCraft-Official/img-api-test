@@ -33,16 +33,6 @@ GET https://img.furapi.top/api
 ```
 
 
-### 📁 获取某分类下的随机图片
-
-```
-GET https://img.furapi.top/A
-```
-
-将 `A` 替换为分类名（如 `fox`, `dragon`, 等）。
-
-支持 `?json=1` 参数获取 JSON 格式返回。
-
 
 ### 📂 直接访问指定图片
 
@@ -59,7 +49,7 @@ GET https://img.furapi.top/A/1.png
 GET https://img.furapi.top/list.json
 ```
 
-返回一个 JSON 数组，包含所有图片的路径。
+返回一个 JSON 数组，包含所有文件的路径以及修改时间。
 
 
 ## 📚 可用分类

@@ -33,16 +33,6 @@ GET https://img.furapi.top/api
 ```
 
 
-### 📁 获取某分类下的随机图片
-
-```
-GET https://img.furapi.top/A
-```
-
-将 `A` 替换为分类名（如 `fox`, `dragon`, 等）。
-
-支持 `?json=1` 参数获取 JSON 格式返回。
-
 
 ### 📂 直接访问指定图片
 
@@ -74,6 +64,6 @@ GET https://img.furapi.top/list.json
 
 你也可以自己添加或管理 `list.json` 来控制分类内容。
 
-
+<br>
 
 © 2025 随机福瑞图 API | 由 FurCraft 提供支持
