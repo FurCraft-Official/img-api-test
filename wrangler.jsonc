@@ -18,6 +18,23 @@
 
   "workers_dev": true,
 
+
+  "workers": {
+    "cron-worker": {
+      "main": "src/cron.js",
+      "triggers": {
+        "crons": ["0 0 * * *"]
+      },
+      "r2_buckets": [
+        {
+          "binding": "IMAGES",
+          "bucket_name": "images",
+          "preview_bucket_name": "images"
+        }
+      ]
+    }
+  },
+
   "env": {
     "development": {
       "workers_dev": false,

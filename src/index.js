@@ -4,6 +4,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // 手动刷新 list.json 接口，使用请求头 Authorization 鉴权
+    if (url.pathname === "/update-list") {
+      const authHeader = request.headers.get("Authorization");
+      if (authHeader !== `Bearer ${env.ADMIN_TOKEN}`) {
+        return new Response("Unauthorized", { status: 403 });
+      }
+
+      await updateListJson(env);
+      return new Response("list.json 手动刷新成功", { status: 200 });
+    }
+
+    // 随机图片 API
     if (url.pathname.startsWith("/api")) {
       const wantJson = url.searchParams.get("json") === "1";
 
@@ -37,6 +49,7 @@ export default {
       });
     }
 
+    // 静态资源请求
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
     } catch (err) {
@@ -44,3 +57,22 @@ export default {
     }
   }
 };
+
+async function updateListJson(env) {
+  const list = [];
+  let cursor;
+
+  do {
+    const { objects, cursor: nextCursor } = await env.IMAGES.list({ prefix: '', cursor });
+    for (const obj of objects) {
+      if (!obj.key.endsWith('/')) list.push(obj.key);
+    }
+    cursor = nextCursor;
+  } while (cursor);
+
+  await env.IMAGES.put('list.json', JSON.stringify(list, null, 2), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+
+  console.log(`✅ list.json updated. Total: ${list.length} images`);
+}
