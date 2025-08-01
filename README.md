@@ -10,6 +10,7 @@
 ```html
 <img src=https://img.furapi.top/api>
 ```
+或者直接访问<https://img.furapi.top/api>
 
 
 ## 🧪 API 使用文档
