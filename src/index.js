@@ -1,5 +1,61 @@
 import { getAssetFromKV } from "@cloudflare/kv-asset-handler";
 
+function formatShanghaiTime(dateStr) {
+  const date = new Date(dateStr);
+  const options = {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  };
+  const parts = new Intl.DateTimeFormat("zh-CN", options).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value.padStart(2, "0");
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+async function updateListJson(env) {
+  const structure = {};
+  let cursor;
+
+  do {
+    const { objects, cursor: nextCursor } = await env.IMAGES.list({ cursor });
+    for (const obj of objects) {
+      if (obj.key.endsWith("/")) continue;
+
+      const parts = obj.key.split("/");
+      const timestamp = formatShanghaiTime(obj.uploaded);
+
+      if (parts.length === 1) {
+        if (!structure["_root"]) structure["_root"] = {};
+        structure["_root"][parts[0]] = timestamp;
+      } else {
+        let current = structure;
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          if (i === parts.length - 1) {
+            current[part] = timestamp;
+          } else {
+            if (!current[part]) current[part] = {};
+            current = current[part];
+          }
+        }
+      }
+    }
+    cursor = nextCursor;
+  } while (cursor);
+
+  const jsonOutput = JSON.stringify(structure, null, 2);
+  await env.IMAGES.put("list.json", jsonOutput, {
+    httpMetadata: { contentType: "application/json" },
+  });
+
+  console.log("✅ list.json 已更新（含上传时间 + 目录树结构）");
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -35,8 +91,7 @@ export default {
         return new Response("No images in R2 bucket", { status: 404 });
       }
 
-      const random =
-        list.objects[Math.floor(Math.random() * list.objects.length)];
+      const random = list.objects[Math.floor(Math.random() * list.objects.length)];
       const object = await env.IMAGES.get(random.key);
       if (!object) {
         return new Response("Failed to load image", { status: 500 });
@@ -69,25 +124,3 @@ export default {
     }
   },
 };
-
-async function updateListJson(env) {
-  const list = [];
-  let cursor;
-
-  do {
-    const { objects, cursor: nextCursor } = await env.IMAGES.list({
-      prefix: "",
-      cursor,
-    });
-    for (const obj of objects) {
-      if (!obj.key.endsWith("/")) list.push(obj.key);
-    }
-    cursor = nextCursor;
-  } while (cursor);
-
-  await env.IMAGES.put("list.json", JSON.stringify(list, null, 2), {
-    httpMetadata: { contentType: "application/json" },
-  });
-
-  console.log(`✅ list.json updated. Total: ${list.length} images`);
-}
