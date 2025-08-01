@@ -8,7 +8,7 @@
 运行可获取一张随机的福瑞图片：
 
 ```shell
-curl https://img.furapi.top/api
+curl https://img.furapi.top/api -o 1.jpg
 ```
 
 
@@ -74,6 +74,6 @@ GET https://img.furapi.top/list.json
 
 你也可以自己添加或管理 `list.json` 来控制分类内容。
 
-
+<br>
 
 © 2025 随机福瑞图 API | 由 FurCraft 提供支持
