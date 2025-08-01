@@ -10,6 +10,7 @@
 ```html
 <img src=https://img.furapi.top/api>
 ```
+或者直接访问<https://img.furapi.top/api>
 
 
 ## 🧪 API 使用文档
@@ -28,7 +29,7 @@ GET https://img.furapi.top/api
 
 - `?json=1`：返回 JSON 格式而不是图片，分类也支持随机json，例如：
 
-`https://img.furapi.top/api/party?json=1`
+<https://img.furapi.top/api/party?json=1>
 <br>
 格式：
 ```json

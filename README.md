@@ -29,7 +29,7 @@ GET https://img.furapi.top/api
 
 - `?json=1`：返回 JSON 格式而不是图片，分类也支持随机json，例如：
 
-`https://img.furapi.top/api/party?json=1`
+<https://img.furapi.top/api/party?json=1>
 <br>
 格式：
 ```json
@@ -66,7 +66,7 @@ GET https://img.furapi.top/list.json
 - `dog`
 - ...
 <br>
-分类列表的格式为目录树格式
+分类列表的格式为目录树格式 
 <pre>
 {
   "目录": {
@@ -80,6 +80,7 @@ GET https://img.furapi.top/list.json
   }
 }
 </pre>
+参考<https://img.furapi.top/list.json>
 <br>
 
 注：本api为cloudflare workers构建，每日访问量有限
