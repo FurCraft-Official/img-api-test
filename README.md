@@ -27,14 +27,13 @@ GET https://img.furapi.top/api
 #### ➕ 可选参数
 
 - `?json=1`：返回 JSON 格式而不是图片，分类也支持随机json，例如：
-```
-https://img.furapi.top/api/party?json=1
-```
+
+`https://img.furapi.top/api/party?json=1`
 <br>
 格式：
-```
+```json
 {"key":"Screenshot_2025-08-01-01-37-32-586_org.telegram.messenger.jpg","size":418227,"uploaded":"2025-07-31T19:39:31.410Z","url":"https://img.furapi.top/api/Screenshot_2025-08-01-01-37-32-586_org.telegram.messenger.jpg"}
-```
+
 
 
 
@@ -68,16 +67,17 @@ GET https://img.furapi.top/list.json
 <br>
 分类列表的格式为目录树格式
 ```json
-"目录": {
-  文件1
-  文件2
-  ...
+{
+  "目录": {
+    文件1
+    文件2
+    ...
+  }
+  "目录2": {
+    文件1
+    ...
+  }
 }
-"目录2": {
-  文件1
-  ...
-}
-```
 <br>
 
 注：本api为cloudflare workers构建，每日访问量有限
