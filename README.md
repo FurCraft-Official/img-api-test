@@ -80,7 +80,9 @@ GET https://img.furapi.top/list.json
   }
 }
 </pre>
-参考<https://img.furapi.top/list.json>
+
+参考 <https://img.furapi.top/list.json>
+
 <br>
 
 注：本api为cloudflare workers构建，每日访问量有限
