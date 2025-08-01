@@ -21,7 +21,7 @@
   "env": {
     "development": {
       "workers_dev": true,
-      "route": "",
+      "route": "https://img.furapi.top/*",
       "main": "src/index.js",
       "assets": {
         "directory": "./public"
