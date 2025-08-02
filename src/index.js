@@ -77,20 +77,27 @@ export default {
       }
 
       ctx.waitUntil(updateListJson(env)); // 异步执行，不阻塞响应
-      return new Response("✅ 已启动异步刷新 list.json，请稍后访问", { status: 202, headers: { "Access-Control-Allow-Origin": "*" } });
+      return new Response("✅ 已启动异步刷新 list.json，请稍后访问", {
+        status: 202,
+        headers: { "Access-Control-Allow-Origin": "*" }
+      });
     }
 
     // ✅ 获取 list.json
     if (pathname === "/list.json") {
       const listObject = await env.IMAGES.get("list.json");
       if (!listObject) {
-        return new Response("list.json not found", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
+        return new Response("list.json not found", {
+          status: 404,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        });
       }
       return new Response(listObject.body, {
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
-        },
+          "Cache-Control": "public, max-age=300, stale-while-revalidate=60"
+        }
       });
     }
 
@@ -109,11 +116,13 @@ export default {
           cursor = next;
         } while (cursor);
 
-        if (files.length === 0) return new Response("No images", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (files.length === 0)
+          return new Response("No images", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
 
         const random = files[Math.floor(Math.random() * files.length)];
         const object = await env.IMAGES.get(random.key);
-        if (!object) return new Response("Failed to load image", { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (!object)
+          return new Response("Failed to load image", { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
 
         if (wantJson) {
           return new Response(JSON.stringify({
@@ -121,14 +130,21 @@ export default {
             size: random.size,
             uploaded: random.uploaded,
             url: `${url.origin}/api/${random.key}`
-          }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+          }), {
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
+            }
+          });
         }
 
         return new Response(object.body, {
           headers: {
             "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
             "Access-Control-Allow-Origin": "*",
-          },
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600"
+          }
         });
       }
 
@@ -140,7 +156,8 @@ export default {
           headers: {
             "Content-Type": fileObject.httpMetadata?.contentType || "application/octet-stream",
             "Access-Control-Allow-Origin": "*",
-          },
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600"
+          }
         });
       }
 
@@ -148,11 +165,13 @@ export default {
       const prefix = key.endsWith("/") ? key : key + "/";
       const list = await env.IMAGES.list({ prefix });
       const candidates = list.objects.filter(obj => isImage(obj.key));
-      if (candidates.length === 0) return new Response("分类中无图片", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
+      if (candidates.length === 0)
+        return new Response("分类中无图片", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
 
       const random = candidates[Math.floor(Math.random() * candidates.length)];
       const obj = await env.IMAGES.get(random.key);
-      if (!obj) return new Response("无法加载图片", { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+      if (!obj)
+        return new Response("无法加载图片", { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
 
       if (wantJson) {
         return new Response(JSON.stringify({
@@ -160,14 +179,21 @@ export default {
           size: random.size,
           uploaded: random.uploaded,
           url: `${url.origin}/api/${random.key}`
-        }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+        }), {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
+          }
+        });
       }
 
       return new Response(obj.body, {
         headers: {
           "Content-Type": obj.httpMetadata?.contentType || "application/octet-stream",
           "Access-Control-Allow-Origin": "*",
-        },
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600"
+        }
       });
     }
 
@@ -175,7 +201,10 @@ export default {
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
     } catch {
-      return new Response("Not found", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
+      return new Response("Not found", {
+        status: 404,
+        headers: { "Access-Control-Allow-Origin": "*" }
+      });
     }
   },
 };
