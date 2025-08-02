@@ -1,12 +1,10 @@
 import { getAssetFromKV } from "@cloudflare/kv-asset-handler";
 
+// 内存缓存
 let imageIndex = null;
 let indexLoadedAt = 0;
-const INDEX_TTL = 60 * 60 * 1000; // 1 小时
+const INDEX_TTL = 60 * 60 * 1000; // 1小时
 
-/**
- * 格式化为上海时间
- */
 function formatShanghaiTime(dateStr) {
   const date = new Date(dateStr);
   const options = {
@@ -24,23 +22,13 @@ function formatShanghaiTime(dateStr) {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-/**
- * 判断 key 是否为图片文件
- */
 function isImage(key) {
-  return (
-    /\.(png|jpe?g|gif|webp)$/i.test(key) &&
-    !key.endsWith("/") &&
-    key !== "list.json"
-  );
+  return /\.(png|jpe?g|gif|webp)$/i.test(key) && !key.endsWith("/") && key !== "list.json";
 }
 
-/**
- * 遍历 R2，生成或更新 list.json
- */
 async function updateListJson(env) {
   const structure = {};
-  let cursor = undefined;
+  let cursor;
 
   do {
     const { objects, cursor: nextCursor } = await env.IMAGES.list({ cursor });
@@ -48,36 +36,28 @@ async function updateListJson(env) {
       if (!isImage(obj.key)) continue;
       const parts = obj.key.split("/");
       const timestamp = formatShanghaiTime(obj.uploaded);
-
       let current = structure;
       for (let i = 0; i < parts.length; i++) {
-        const p = parts[i];
+        const part = parts[i];
         if (i === parts.length - 1) {
-          current[p] = timestamp;
+          current[part] = timestamp;
         } else {
-          current[p] = current[p] || {};
-          current = current[p];
+          current[part] = current[part] || {};
+          current = current[part];
         }
       }
     }
     cursor = nextCursor;
   } while (cursor);
 
-  await env.IMAGES.put(
-    "list.json",
-    JSON.stringify(structure, null, 2),
-    { httpMetadata: { contentType: "application/json" } }
-  );
+  await env.IMAGES.put("list.json", JSON.stringify(structure, null, 2), {
+    httpMetadata: { contentType: "application/json" },
+  });
   console.log("✅ list.json 已更新");
 }
 
-/**
- * 加载并内存缓存 list.json
- */
 async function loadImageIndex(env) {
-  if (imageIndex && Date.now() - indexLoadedAt < INDEX_TTL) {
-    return imageIndex;
-  }
+  if (imageIndex && Date.now() - indexLoadedAt < INDEX_TTL) return imageIndex;
   const raw = await env.IMAGES.get("list.json");
   if (!raw) throw new Error("list.json not found");
   imageIndex = JSON.parse(await raw.text());
@@ -85,9 +65,6 @@ async function loadImageIndex(env) {
   return imageIndex;
 }
 
-/**
- * 扁平化嵌套结构为 key 列表
- */
 function flattenKeys(struct, prefix = "") {
   return Object.entries(struct).flatMap(([key, val]) => {
     const path = prefix + key;
@@ -96,16 +73,10 @@ function flattenKeys(struct, prefix = "") {
   });
 }
 
-/**
- * 随机选
- */
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/**
- * 从 R2 取资源并加上 Cache-Control
- */
 async function fetchFromR2(env, key, wantJson, originUrl) {
   const obj = await env.IMAGES.get(key);
   if (!obj) return new Response("Not found", { status: 404, headers: { "Access-Control-Allow-Origin": "*" } });
@@ -143,11 +114,14 @@ export default {
     const pathname = url.pathname;
     const wantJson = url.searchParams.get("json") === "1";
 
-    // 1. 手动刷新索引
+    // 更新 list.json（异步刷新）
     if (pathname === "/update-list") {
       const auth = request.headers.get("Authorization");
       if (auth !== `Bearer ${env.ADMIN_TOKEN}`) {
-        return new Response("Unauthorized", { status: 403, headers: { "Access-Control-Allow-Origin": "*" } });
+        return new Response("Unauthorized", {
+          status: 403,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        });
       }
       ctx.waitUntil(updateListJson(env));
       return new Response("✅ 正在异步刷新 list.json", {
@@ -156,7 +130,7 @@ export default {
       });
     }
 
-    // 2. 返回 list.json
+    // 返回 list.json 文件
     if (pathname === "/list.json") {
       const listObj = await env.IMAGES.get("list.json");
       if (!listObj) {
@@ -175,21 +149,27 @@ export default {
       });
     }
 
-    // 3. 图片 API，不缓存随机端点
+    // 处理图片 API 请求
     if (pathname.startsWith("/api")) {
       const segments = pathname.split("/").filter(Boolean).slice(1);
-      let targetKey;
+      const key = segments.join("/");
 
+      // 尝试直接访问文件
+      const fileObj = await env.IMAGES.get(key);
+      if (fileObj) {
+        return await fetchFromR2(env, key, wantJson, url.origin);
+      }
+
+      // 否则目录随机取图
       try {
         const idx = await loadImageIndex(env);
+        let targetKey;
 
         if (segments.length === 0) {
-          // 全库随机，每次都重新挑
           targetKey = pickRandom(flattenKeys(idx));
         } else {
-          // 指定目录随机
-          const prefix = segments.join("/") + "/";
-          const candidates = flattenKeys(idx).filter((k) => k.startsWith(prefix));
+          const prefix = key.endsWith("/") ? key : key + "/";
+          const candidates = flattenKeys(idx).filter(k => k.startsWith(prefix));
           if (!candidates.length) {
             return new Response("分类中无图片", {
               status: 404,
@@ -199,7 +179,6 @@ export default {
           targetKey = pickRandom(candidates);
         }
 
-        // 直接从 R2 取，不走 caches.default
         return await fetchFromR2(env, targetKey, wantJson, url.origin);
 
       } catch (e) {
@@ -210,7 +189,7 @@ export default {
       }
     }
 
-    // 4. 静态资源走 KV asset handler
+    // 默认处理静态资源
     try {
       return await getAssetFromKV({ request, waitUntil: ctx.waitUntil });
     } catch {
@@ -219,5 +198,5 @@ export default {
         headers: { "Access-Control-Allow-Origin": "*" },
       });
     }
-  },
-};
+  }
+}
