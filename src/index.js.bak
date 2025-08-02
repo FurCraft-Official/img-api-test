@@ -1,9 +1,9 @@
 import { getAssetFromKV } from "@cloudflare/kv-asset-handler";
 
-// 提升正则表达式为常量，避免重复编译
+// 预编译正则表达式
 const IMAGE_REGEX = /\.(png|jpe?g|gif|webp)$/i;
 
-// 创建全局DateTimeFormat实例，避免重复创建
+// 创建全局DateTimeFormat实例
 const SHANGHAI_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
   year: "numeric",
@@ -19,20 +19,20 @@ function formatShanghaiTime(dateStr) {
   const date = new Date(dateStr);
   const parts = SHANGHAI_FORMATTER.formatToParts(date);
   
-  // 使用Map缓存查找结果
-  const valueMap = new Map();
+  // 使用查找表提高效率
+  const valueMap = {};
   for (const part of parts) {
-    valueMap.set(part.type, part.value.padStart(2, "0"));
+    valueMap[part.type] = part.value.padStart(2, "0");
   }
   
-  return `${valueMap.get("year")}-${valueMap.get("month")}-${valueMap.get("day")} ${valueMap.get("hour")}:${valueMap.get("minute")}:${valueMap.get("second")}`;
+  return `${valueMap.year}-${valueMap.month}-${valueMap.day} ${valueMap.hour}:${valueMap.minute}:${valueMap.second}`;
 }
 
 function isImage(key) {
   return IMAGE_REGEX.test(key) && key !== "list.json";
 }
 
-// 添加list.json缓存
+// 添加内存缓存
 let listJsonCache = null;
 const CACHE_TTL = 300000; // 5分钟缓存
 
@@ -43,7 +43,6 @@ async function updateListJson(env) {
   do {
     const { objects, cursor: nextCursor } = await env.IMAGES.list({ cursor });
     for (const obj of objects) {
-      // 跳过目录和list.json
       if (obj.key.endsWith("/") || obj.key === "list.json") continue;
       
       const parts = obj.key.split("/");
@@ -56,8 +55,7 @@ async function updateListJson(env) {
         current = current[part];
       }
       
-      const lastPart = parts[parts.length - 1];
-      current[lastPart] = timestamp;
+      current[parts[parts.length - 1]] = timestamp;
     }
     cursor = nextCursor;
   } while (cursor);
@@ -140,7 +138,7 @@ export default {
 
       // 处理根目录随机图片
       if (parts.length === 0) {
-        return this.handleRandomImage(null, env, url, wantJson);
+        return this.handleRandomImage(undefined, env, url, wantJson);
       }
       
       // 尝试直接获取文件
@@ -149,7 +147,7 @@ export default {
         return this.handleImageResponse(fileObject, key, wantJson, url.origin);
       }
 
-      // 处理目录随机图片
+      // 处理目录随机图片 - 修复错误：确保prefix是字符串或undefined
       const prefix = key.endsWith("/") ? key : `${key}/`;
       return this.handleRandomImage(prefix, env, url, wantJson);
     }
@@ -165,20 +163,24 @@ export default {
     }
   },
   
-  // 处理随机图片逻辑
+  // 处理随机图片逻辑 - 修复prefix处理
   async handleRandomImage(prefix, env, url, wantJson) {
     let cursor;
     const files = [];
     const startTime = Date.now();
 
     do {
-      const { objects, cursor: next } = await env.IMAGES.list({
-        prefix,
-        cursor,
-        limit: 100 // 减少每次请求的数量
-      });
+      // 修复: 确保prefix是字符串或undefined
+      const listOptions = { cursor, limit: 100 };
+      if (prefix && typeof prefix === "string") {
+        listOptions.prefix = prefix;
+      }
+
+      const { objects, cursor: next } = await env.IMAGES.list(listOptions);
       
-      for (const obj of objects) {
+      // 优化: 使用高效过滤
+      for (let i = 0; i < objects.length; i++) {
+        const obj = objects[i];
         if (isImage(obj.key)) {
           files.push(obj);
         }
@@ -196,7 +198,9 @@ export default {
       });
     }
 
-    const random = files[Math.floor(Math.random() * files.length)];
+    // 优化: 使用高效随机选择
+    const randomIndex = Math.floor(Math.random() * files.length);
+    const random = files[randomIndex];
     const object = await env.IMAGES.get(random.key);
     if (!object) {
       return new Response("无法加载图片", { 
